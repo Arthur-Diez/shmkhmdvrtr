@@ -9,49 +9,42 @@ app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 
 # Ваш токен Telegram
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "your_default_token")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7676861261:AAHjc-5682FoCJ1OEhr8mJycaisy-EpSF6U")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
-# Обработка успешных платежей
+# Обработка всех событий от YooKassa
 @app.post("/webhook/yookassa")
 async def webhook_yookassa(request: Request):
     try:
         data = await request.json()
-        logging.info(f"Получено уведомление: {data}")
+        logging.info(f"Получено уведомление от YooKassa: {data}")
 
-        # Проверяем, что платеж успешен
-        if data.get("event") == "payment.succeeded":
-            payment_info = data.get("object", {})
-            chat_id = payment_info.get("metadata", {}).get("chat_id")  # Достаем chat_id из metadata
+        # Извлекаем основную информацию
+        event = data.get("event")
+        payment_info = data.get("object", {})
+        chat_id = payment_info.get("metadata", {}).get("chat_id")
+
+        # Обрабатываем события
+        if event == "payment.succeeded":
+            # Успешный платеж
             if chat_id:
                 send_telegram_message(chat_id, "✅ Ваш платеж успешно обработан! Спасибо за оплату. 😊")
             return {"status": "ok"}
+        elif event == "payment.canceled":
+            # Отмененный платеж
+            if chat_id:
+                send_telegram_message(chat_id, "❌ Ваш платеж был отменен. Попробуйте еще раз или свяжитесь с поддержкой.")
+            return {"status": "ok"}
+        elif event == "refund.succeeded":
+            # Успешный возврат
+            if chat_id:
+                send_telegram_message(chat_id, "💸 Возврат средств успешно выполнен. Если есть вопросы, напишите в поддержку.")
+            return {"status": "ok"}
         else:
-            logging.info("Неуспешное уведомление обработано.")
+            logging.info(f"Необработанное событие: {event}")
             return {"status": "ignored"}
     except Exception as e:
-        logging.error(f"Ошибка обработки webhook: {e}")
-        return {"status": "error"}
-
-# Обработка всех остальных уведомлений
-@app.post("/webhook/yookassa/other")
-async def webhook_yookassa_other(request: Request):
-    try:
-        data = await request.json()
-        logging.info(f"Получено другое уведомление: {data}")
-
-        event = data.get("event")
-        payment_info = data.get("object", {})
-        chat_id = payment_info.get("metadata", {}).get("chat_id")  # Достаем chat_id из metadata
-
-        if event == "payment.canceled" and chat_id:
-            send_telegram_message(chat_id, "❌ Ваш платеж был отменен. Попробуйте еще раз или свяжитесь с поддержкой.")
-        elif event == "refund.succeeded" and chat_id:
-            send_telegram_message(chat_id, "💸 Возврат средств успешно выполнен. Если есть вопросы, напишите в поддержку.")
-
-        return {"status": "ok"}
-    except Exception as e:
-        logging.error(f"Ошибка обработки webhook: {e}")
+        logging.error(f"Ошибка обработки вебхука: {e}")
         return {"status": "error"}
 
 # Функция отправки сообщений в Telegram
