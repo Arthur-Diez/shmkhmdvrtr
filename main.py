@@ -1,14 +1,15 @@
 from fastapi import FastAPI, Request
 import logging
 import requests
+import os
 
 app = FastAPI()
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
-# Ваш токен Telegram и ID бота
-TELEGRAM_BOT_TOKEN = "7676861261:AAHjc-5682FoCJ1OEhr8mJycaisy-EpSF6U"
+# Ваш токен Telegram
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "your_default_token")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
 # Обработка успешных платежей
@@ -66,3 +67,9 @@ def send_telegram_message(chat_id, text):
             logging.error(f"Ошибка отправки сообщения в Telegram: {response.text}")
     except Exception as e:
         logging.error(f"Ошибка при попытке отправить сообщение в Telegram: {e}")
+
+# Добавляем запуск приложения на Render
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))  # Используем порт из переменной окружения PORT
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port)
