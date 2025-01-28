@@ -24,6 +24,17 @@ DB_CONFIG = {
     "port": os.getenv("DB_PORT", 5432)
 }
 
+# Словарь для отображения нормальных названий товаров
+PRODUCT_NAMES = {
+    "cards_10": "10 запросов картам",
+    "cards_30": "30 запросов картам",
+    "cards_7d": "Подписка на карты (7 дней)",
+    "cards_30d": "Подписка на карты (30 дней)",
+    "matrix_1": "1 запрос матрице судьбы",
+    "matrix_5": "5 запросов матрице судьбы",
+    "matrix_10": "10 запросов матрице судьбы"
+}
+
 # Webhook для обработки событий от YooKassa
 @app.post("/webhook/yookassa")
 async def webhook_yookassa(request: Request):
@@ -41,7 +52,7 @@ async def webhook_yookassa(request: Request):
                 # Обновляем данные в базе данных
                 success = update_user_data(chat_id, product_id)
                 if success:
-                    send_telegram_message(chat_id, escape_markdown(f"✅ Оплата прошла успешно!\nТовар: {product_id} зачислен на ваш аккаунт."))
+                    send_telegram_message(chat_id, escape_markdown(f"✅ Оплата прошла успешно!\nТовар: {PRODUCT_NAMES.get(product_id, product_id)} зачислен на ваш аккаунт."))
                 else:
                     send_telegram_message(chat_id, "❌ Произошла ошибка при зачислении товара. Свяжитесь с поддержкой.")
         elif event == "payment.canceled":
