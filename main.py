@@ -17,10 +17,10 @@ TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessag
 
 # Настройки базы данных
 DB_CONFIG = {
-    "dbname": os.getenv("DB_NAME", "your_db_name"),
-    "user": os.getenv("DB_USER", "your_db_user"),
-    "password": os.getenv("DB_PASSWORD", "your_db_password"),
-    "host": os.getenv("DB_HOST", "localhost"),
+    "dbname": os.getenv("DB_NAME", "tarot_bot"),
+    "user": os.getenv("DB_USER", "main"),
+    "password": os.getenv("DB_PASSWORD", "parole228"),
+    "host": os.getenv("DB_HOST", "127.0.0.1"),
     "port": os.getenv("DB_PORT", 5432)
 }
 
