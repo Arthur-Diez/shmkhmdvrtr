@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 import logging
 import requests
 import os
+import re
 
 app = FastAPI()
 
@@ -26,13 +27,13 @@ async def webhook_yookassa(request: Request):
 
         if event == "payment.succeeded":
             if chat_id and product_id:
-                notify_bot(chat_id, product_id, "✅ Оплата прошла успешно!")
+                send_telegram_message(chat_id, f"✅ Оплата прошла успешно!\n\n*Товар:* {product_id}")
         elif event == "payment.canceled":
             if chat_id:
-                notify_bot(chat_id, product_id, "❌ Ваш платеж был отменен. Попробуйте снова.")
+                send_telegram_message(chat_id, f"❌ Ваш платеж был отменен. Попробуйте снова.")
         elif event == "refund.succeeded":
             if chat_id:
-                notify_bot(chat_id, product_id, "💸 Возврат средств успешно выполнен.")
+                send_telegram_message(chat_id, f"💸 Возврат средств успешно выполнен.")
 
         return {"status": "ok"}
     except Exception as e:
@@ -55,13 +56,18 @@ async def payment_success():
 async def favicon():
     return {"message": "Favicon запрошен. Игнорируем."}
 
-# Отправка уведомления боту с product_id
-def notify_bot(chat_id, product_id, text):
+# Экранирование спецсимволов в Telegram Markdown
+def escape_markdown(text):
+    escape_chars = r'\*_`[]()~>#+-=|{}.!'
+    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
+
+# Отправка уведомления в Telegram
+def send_telegram_message(chat_id, text):
     try:
         payload = {
             "chat_id": chat_id,
-            "text": f"{text}\n\nТовар: {product_id}",
-            "parse_mode": "Markdown"
+            "text": escape_markdown(text),  # Экранируем Markdown
+            "parse_mode": "MarkdownV2"
         }
         response = requests.post(TELEGRAM_API_URL, json=payload)
         if response.status_code == 200:
@@ -69,7 +75,7 @@ def notify_bot(chat_id, product_id, text):
         else:
             logging.error(f"❌ Ошибка отправки сообщения в Telegram: {response.text}")
     except Exception as e:
-        logging.error(f"❌ Ошибка отправки сообщения в Telegram: {e}")
+        logging.error(f"❌ Ошибка при попытке отправить сообщение в Telegram: {e}")
 
 # Запуск сервера
 if __name__ == "__main__":
