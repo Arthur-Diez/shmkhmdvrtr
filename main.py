@@ -52,7 +52,7 @@ async def webhook_yookassa(request: Request):
                 # Обновляем данные в базе данных
                 success = update_user_data(chat_id, product_id)
                 if success:
-                    send_telegram_message(chat_id, escape_markdown(f"✅ Оплата прошла успешно!\nТовар: {PRODUCT_NAMES.get(product_id, product_id)} зачислен на ваш аккаунт."))
+                    send_telegram_message(chat_id, escape_markdown(f"✅ Оплата прошла успешно!\nТовар: '{PRODUCT_NAMES.get(product_id, product_id)}' зачислен на ваш аккаунт."))
                 else:
                     send_telegram_message(chat_id, "❌ Произошла ошибка при зачислении товара. Свяжитесь с поддержкой.")
         elif event == "payment.canceled":
