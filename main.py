@@ -41,7 +41,7 @@ async def webhook_yookassa(request: Request):
                 # Обновляем данные в базе данных
                 success = update_user_data(chat_id, product_id)
                 if success:
-                    send_telegram_message(chat_id, f"✅ Оплата прошла успешно! Товар ({product_id}) зачислен на ваш аккаунт.")
+                    send_telegram_message(chat_id, escape_markdown(f"✅ Оплата прошла успешно!\nТовар: {product_id} зачислен на ваш аккаунт."))
                 else:
                     send_telegram_message(chat_id, "❌ Произошла ошибка при зачислении товара. Свяжитесь с поддержкой.")
         elif event == "payment.canceled":
@@ -96,10 +96,10 @@ def update_user_data(chat_id, product_id):
         logging.error(f"❌ Ошибка обновления данных пользователя: {e}")
         return False
 
-# Экранирование спецсимволов в Telegram Markdown
+# Функция экранирования спецсимволов в MarkdownV2
 def escape_markdown(text):
-    escape_chars = r'\\*_`[]()~>#+-=|{}.!'
-    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\\\\1", text)
+    escape_chars = r'\_*[]()~`>#+-=|{}.!'
+    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
 
 # Отправка сообщений в Telegram
 def send_telegram_message(chat_id, text):
