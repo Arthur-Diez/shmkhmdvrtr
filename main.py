@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request
 import logging
 import requests
 import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import re
 
 app = FastAPI()
@@ -13,15 +15,21 @@ logging.basicConfig(level=logging.INFO)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "ВАШ_ТОКЕН")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
-# URL для API-метода бота
-BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:8000/process_payment")  # Замените на URL вашего бота
+# Настройки базы данных
+DB_CONFIG = {
+    "dbname": os.getenv("DB_NAME", "your_db_name"),
+    "user": os.getenv("DB_USER", "your_db_user"),
+    "password": os.getenv("DB_PASSWORD", "your_db_password"),
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": os.getenv("DB_PORT", 5432)
+}
 
 # Webhook для обработки событий от YooKassa
 @app.post("/webhook/yookassa")
 async def webhook_yookassa(request: Request):
     try:
         data = await request.json()
-        logging.info(f"📩 Получено уведомление от YooKassa: {data}")
+        logging.info(f"\ud83d\udce9 Получено уведомление от YooKassa: {data}")
 
         event = data.get("event")
         payment_info = data.get("object", {})
@@ -30,58 +38,68 @@ async def webhook_yookassa(request: Request):
 
         if event == "payment.succeeded":
             if chat_id and product_id:
-                # Отправляем данные об оплате в бот
-                success = notify_bot(chat_id, product_id)
+                # Обновляем данные в базе данных
+                success = update_user_data(chat_id, product_id)
                 if success:
-                    logging.info(f"✅ Уведомление успешно отправлено в бота для пользователя {chat_id}")
+                    send_telegram_message(chat_id, f"✅ Оплата прошла успешно! Товар ({product_id}) зачислен на ваш аккаунт.")
                 else:
-                    logging.error(f"❌ Ошибка отправки уведомления в бота для пользователя {chat_id}")
+                    send_telegram_message(chat_id, "❌ Произошла ошибка при зачислении товара. Свяжитесь с поддержкой.")
         elif event == "payment.canceled":
             if chat_id:
                 send_telegram_message(chat_id, "❌ Ваш платеж был отменен. Попробуйте снова.")
         elif event == "refund.succeeded":
             if chat_id:
-                send_telegram_message(chat_id, "💸 Возврат средств успешно выполнен.")
+                send_telegram_message(chat_id, "\ud83d\udcb8 Возврат средств успешно выполнен.")
 
         return {"status": "ok"}
     except Exception as e:
         logging.error(f"❌ Ошибка обработки вебхука: {e}")
         return {"status": "error"}
 
-# Функция уведомления бота об успешной оплате
-def notify_bot(chat_id, product_id):
+# Обновление данных пользователя в базе данных
+def update_user_data(chat_id, product_id):
     try:
-        payload = {"chat_id": chat_id, "product_id": product_id}
-        response = requests.post(BOT_API_URL, json=payload)
-        if response.status_code == 200:
-            return True
-        else:
-            logging.error(f"❌ Ошибка отправки данных в бот: {response.text}")
+        # Привязка товаров к обновлению полей
+        product_updates = {
+            "cards_10": {"field": "request_questions", "value": 10},
+            "cards_30": {"field": "request_questions", "value": 30},
+            "cards_7d": {"field": "premium_days_left", "value": 7},
+            "cards_30d": {"field": "premium_days_left", "value": 30},
+            "matrix_1": {"field": "request_matrix", "value": 1},
+            "matrix_5": {"field": "request_matrix", "value": 5},
+            "matrix_10": {"field": "request_matrix", "value": 10}
+        }
+
+        if product_id not in product_updates:
+            logging.error(f"❌ Неизвестный продукт: {product_id}")
             return False
+
+        update = product_updates[product_id]
+        field = update["field"]
+        value = update["value"]
+
+        query = f"""
+            UPDATE users
+            SET {field} = {field} + %s
+            WHERE user_id = %s;
+        """
+
+        with psycopg2.connect(**DB_CONFIG) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, (value, chat_id))
+                conn.commit()
+
+        logging.info(f"✅ Обновлено поле {field} для пользователя {chat_id}, добавлено значение: {value}")
+        return True
+
     except Exception as e:
-        logging.error(f"❌ Ошибка при отправке данных в бот: {e}")
+        logging.error(f"❌ Ошибка обновления данных пользователя: {e}")
         return False
-
-# Корневой маршрут
-@app.get("/")
-async def root():
-    return {"message": "✅ Сайт работает. Используйте Telegram-бот для взаимодействия."}
-
-# Маршрут для успешного платежа
-@app.post("/success")
-async def payment_success():
-    logging.info("🔗 Пользователь вернулся после успешного платежа")
-    return {"message": "Оплата успешно завершена! Вернитесь в Telegram-бот."}
-
-# Заглушка для favicon.ico
-@app.get("/favicon.ico")
-async def favicon():
-    return {"message": "Favicon запрошен. Игнорируем."}
 
 # Экранирование спецсимволов в Telegram Markdown
 def escape_markdown(text):
-    escape_chars = r'\*_`[]()~>#+-=|{}.!'
-    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
+    escape_chars = r'\\*_`[]()~>#+-=|{}.!'
+    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\\\\1", text)
 
 # Отправка сообщений в Telegram
 def send_telegram_message(chat_id, text):
@@ -93,7 +111,7 @@ def send_telegram_message(chat_id, text):
         }
         response = requests.post(TELEGRAM_API_URL, json=payload)
         if response.status_code == 200:
-            logging.info(f"📩 Уведомление отправлено пользователю {chat_id}")
+            logging.info(f"\ud83d\udce9 Уведомление отправлено пользователю {chat_id}")
         else:
             logging.error(f"❌ Ошибка отправки сообщения в Telegram: {response.text}")
     except Exception as e:
