@@ -40,18 +40,21 @@ PRODUCT_NAMES = {
 async def webhook_yookassa(request: Request):
     try:
         data = await request.json()
-        logging.info(f"\ud83d\udce9 Получено уведомление от YooKassa: {data}")
+        logging.info(f"📩 Получено уведомление от YooKassa: {data}")
 
         event = data.get("event")
         payment_info = data.get("object", {})
         chat_id = payment_info.get("metadata", {}).get("chat_id")
         product_id = payment_info.get("metadata", {}).get("product_id")
+        amount = payment_info.get("amount", {}).get("value")  # Получаем сумму платежа
 
         if event == "payment.succeeded":
             if chat_id and product_id:
                 # Обновляем данные в базе данных
                 success = update_user_data(chat_id, product_id)
                 if success:
+                    # Записываем успешную покупку в базу данных
+                    record_sale(chat_id, product_id, amount)
                     send_telegram_message(chat_id, escape_markdown(f"✅ Оплата прошла успешно!\nТовар: '{PRODUCT_NAMES.get(product_id, product_id)}' зачислен на ваш аккаунт."))
                 else:
                     send_telegram_message(chat_id, "❌ Произошла ошибка при зачислении товара. Свяжитесь с поддержкой.")
@@ -60,7 +63,7 @@ async def webhook_yookassa(request: Request):
                 send_telegram_message(chat_id, "❌ Ваш платеж был отменен. Попробуйте снова.")
         elif event == "refund.succeeded":
             if chat_id:
-                send_telegram_message(chat_id, "\ud83d\udcb8 Возврат средств успешно выполнен.")
+                send_telegram_message(chat_id, "💸 Возврат средств успешно выполнен.")
 
         return {"status": "ok"}
     except Exception as e:
@@ -106,6 +109,25 @@ def update_user_data(chat_id, product_id):
     except Exception as e:
         logging.error(f"❌ Ошибка обновления данных пользователя: {e}")
         return False
+
+# Запись покупки в таблицу sales
+def record_sale(chat_id, product_id, amount):
+    try:
+        query = """
+            INSERT INTO sales (user_id, product_name, amount) 
+            VALUES (%s, %s, %s);
+        """
+
+        product_name = PRODUCT_NAMES.get(product_id, product_id)  # Получаем нормальное название товара
+
+        with psycopg2.connect(**DB_CONFIG) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, (chat_id, product_name, amount))
+                conn.commit()
+
+        logging.info(f"✅ Продажа записана: Пользователь {chat_id} купил '{product_name}' за {amount} руб.")
+    except Exception as e:
+        logging.error(f"❌ Ошибка записи в таблицу продаж: {e}")
 
 # Функция экранирования спецсимволов в MarkdownV2
 def escape_markdown(text):
