@@ -11,6 +11,8 @@ app = FastAPI()
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
+BOT_SERVER_URL = "http://147.45.167.44:8000"
+
 # Токен Telegram
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "ВАШ_ТОКЕН")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -32,7 +34,21 @@ PRODUCT_NAMES = {
     "cards_30d": "Подписка на карты (30 дней)",
     "matrix_1": "1 запрос матрице судьбы",
     "matrix_5": "5 запросов матрице судьбы",
-    "matrix_10": "10 запросов матрице судьбы"
+    "matrix_10": "10 запросов матрице судьбы",
+    "horoscope_sub_7": "Подписка на индивидуальный гороскоп 7 дней",
+    "horoscope_sub_14": "Подписка на индивидуальный гороскоп 14 дней",
+    "horoscope_sub_30": "Подписка на индивидуальный гороскоп 30 дней",
+    "horoscope_tomorrow": "Индивидуальный гороскоп на завтра",
+    "horoscope_week": "Индивидуальный гороскоп на неделю",
+    "horoscope_month": "Индивидуальный гороскоп на месяц",
+    "horoscope_year": "Индивидуальный гороскоп на год"
+}
+
+# Набор товаров, при покупке которых нужно сразу формировать гороскоп
+HOROSCOPE_PRODUCTS = {
+    "horoscope_sub_7",
+    "horoscope_sub_14",
+    "horoscope_sub_30"
 }
 
 # Webhook для обработки событий от YooKassa
@@ -56,11 +72,15 @@ async def webhook_yookassa(request: Request):
                     # Записываем успешную покупку в базу данных
                     record_sale(chat_id, product_id, amount)
                     send_telegram_message(chat_id, escape_markdown(f"✅ Оплата прошла успешно!\nТовар: '{PRODUCT_NAMES.get(product_id, product_id)}' зачислен на ваш аккаунт."))
+                    
+                    # 4) Если это товар гороскопа, вызываем бота для автоматической отправки гороскопа
+                    if product_id in HOROSCOPE_PRODUCTS:
+                        call_bot_for_horoscope(chat_id)
                 else:
                     send_telegram_message(chat_id, "❌ Произошла ошибка при зачислении товара. Свяжитесь с поддержкой.")
         elif event == "payment.canceled":
             if chat_id:
-                send_telegram_message(chat_id, "❌ Ваш платеж был отменен. Попробуйте снова.")
+                send_telegram_message(chat_id, "❌ Ваш платеж был отменен. Пожалуйста, попробуйте снова.")
         elif event == "refund.succeeded":
             if chat_id:
                 send_telegram_message(chat_id, "💸 Возврат средств успешно выполнен.")
@@ -81,7 +101,14 @@ def update_user_data(chat_id, product_id):
             "cards_30d": {"field": "premium_days_left", "value": 30},
             "matrix_1": {"field": "request_matrix", "value": 1},
             "matrix_5": {"field": "request_matrix", "value": 5},
-            "matrix_10": {"field": "request_matrix", "value": 10}
+            "matrix_10": {"field": "request_matrix", "value": 10},
+            "horoscope_sub_7": {"field": "days_for_horoscope", "value": 7},
+            "horoscope_sub_14": {"field": "days_for_horoscope", "value": 14},
+            "horoscope_sub_30": {"field": "days_for_horoscope", "value": 30},
+            "horoscope_tomorrow": {"field": "day_horoscope", "value": 1},
+            "horoscope_week": {"field": "week_horoscope", "value": 1},
+            "horoscope_month": {"field": "month_horoscope", "value": 1},
+            "horoscope_year": {"field": "year_horoscope", "value": 1}
         }
 
         if product_id not in product_updates:
@@ -149,6 +176,23 @@ def send_telegram_message(chat_id, text):
             logging.error(f"❌ Ошибка отправки сообщения в Telegram: {response.text}")
     except Exception as e:
         logging.error(f"❌ Ошибка при попытке отправить сообщение в Telegram: {e}")
+
+def call_bot_for_horoscope(user_id: int):
+    """
+    Делает POST-запрос к серверу бота, чтобы сформировать 
+    гороскоп для user_id и отправить его в Telegram.
+    """
+    try:
+        # Если эндпоинт в боте называется /internal/activate_horoscope
+        endpoint = f"{BOT_SERVER_URL}/internal/activate_horoscope"
+        data = {"user_id": user_id}
+        resp = requests.post(endpoint, json=data, timeout=10)
+        if resp.status_code == 200:
+            logging.info(f"✅ Запрос формирования гороскопа отправлен боту для user_id={user_id}.")
+        else:
+            logging.error(f"❌ Ошибка при запросе к боту: {resp.status_code}, {resp.text}")
+    except Exception as e:
+        logging.error(f"❌ call_bot_for_horoscope ошибка: {e}")
 
 # Запуск сервера
 if __name__ == "__main__":
