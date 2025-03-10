@@ -147,7 +147,7 @@ def update_user_data(bot_type: str, chat_id: int, product_id: str) -> bool:
         if bot_type == "tarot_rus":
             product_dict = PRODUCT_UPDATES_TAROT_RUS
             table_name = "users"  # Таблица для бота "Таро"
-        elif bot_type == "sonni_rus":
+        elif bot_type == "sonnik_rus":
             product_dict = PRODUCT_UPDATES_SONNIK_RUS
             table_name = "users_sonnik"  # Таблица для бота "Сонник"
         else:
