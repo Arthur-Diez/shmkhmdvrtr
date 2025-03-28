@@ -30,6 +30,8 @@ DB_CONFIG = {
 
 # Словарь для отображения нормальных названий товаров
 PRODUCT_NAMES_TAROT_RUS = {
+    "cards_3": "3 запроса картам",
+    "cards_5": "5 запросов картам",
     "cards_10": "10 запросов картам",
     "cards_30": "30 запросов картам",
     "cards_7d": "Подписка на карты (7 дней)",
@@ -65,6 +67,8 @@ HOROSCOPE_PRODUCTS = {
 # СЛОВАРИ для обновления полей в БД
 # (Тут указываем, какое поле в какой таблице прибавлять)
 PRODUCT_UPDATES_TAROT_RUS = {
+    "cards_3":       {"field": "request_questions", "value": 3},
+    "cards_5":      {"field": "request_questions", "value": 5},
     "cards_10":      {"field": "request_questions", "value": 10},
     "cards_30":      {"field": "request_questions", "value": 30},
     "cards_7d":      {"field": "premium_days_left", "value": 7},
