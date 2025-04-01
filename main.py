@@ -16,8 +16,10 @@ BOT_SERVER_URL = "http://147.45.167.44:8000"
 # Токен Telegram
 TELEGRAM_BOT_TOKEN_TAROT_RUS = os.getenv("TELEGRAM_BOT_TOKEN_TAROT_RUS", "ВАШ_ТОКЕН_ТАРО_РУС")
 TELEGRAM_BOT_TOKEN_SONNIK_RUS = os.getenv("TELEGRAM_BOT_TOKEN_SONNIK_RUS", "ВАШ_ТОКЕН_СОННИК_РУС")
+TELEGRAM_BOT_TOKEN_RESHALA = os.getenv("TELEGRAM_BOT_TOKEN_RESHALA", "ВАШ_ТОКЕН_РЕШАЛА")
 TELEGRAM_API_URL_TAROT_RUS = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN_TAROT_RUS}/sendMessage"
 TELEGRAM_API_URL_SONNIK_RUS = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN_SONNIK_RUS}/sendMessage"
+TELEGRAM_API_URL_RESHALA = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN_RESHALA}/sendMessage"
 
 # Настройки базы данных
 DB_CONFIG = {
@@ -62,6 +64,12 @@ HOROSCOPE_PRODUCTS = {
     "horoscope_sub_30"
 }
 
+PRODUCT_NAMES_RESHALA = {
+    "reshala_10": "10 вопросов",
+    "reshala_20": "20 вопросов",
+    "reshala_50": "50 вопросов",
+    "reshala_100": "100 вопросов"
+}
 
 # =========================================
 # СЛОВАРИ для обновления полей в БД
@@ -91,6 +99,13 @@ PRODUCT_UPDATES_SONNIK_RUS = {
     "sonnik_5":     {"field": "dream_requests",       "value": 5},
     "sonnik_month": {"field": "premium_days_sonnik",  "value": 30}  # например, на 30 дней
 }
+
+PRODUCT_UPDATES_RESHALA = {
+    "reshala_10":     {"field": "questions_count",       "value": 10},
+    "reshala_20":     {"field": "questions_count",       "value": 20},
+    "reshala_50":     {"field": "questions_count",       "value": 50},
+    "reshala_100":    {"field": "questions_count",       "value": 100}  # например, на 30 дней
+}
 # =========================================
 
 
@@ -119,6 +134,10 @@ async def webhook_yookassa(request: Request):
                     # Определяем "красивое" имя товара, исходя из bot_type
                     if bot_type == "tarot_rus":
                         product_name = PRODUCT_NAMES_TAROT_RUS.get(product_id, product_id)
+                    elif bot_type == "sonnik_rus":
+                        product_name = PRODUCT_NAMES_SONNIK_RUS.get(product_id, product_id)
+                    elif bot_type == "reshalbich":
+                        product_name = PRODUCT_NAMES_RESHALA.get(product_id, product_id)
                     else:
                         product_name = PRODUCT_NAMES_SONNIK_RUS.get(product_id, product_id)
                     send_telegram_message(bot_type, chat_id, escape_markdown(f"✅ Оплата прошла успешно!\nТовар: '{product_name}' зачислен на ваш аккаунт."))
@@ -154,6 +173,10 @@ def update_user_data(bot_type: str, chat_id: int, product_id: str) -> bool:
         elif bot_type == "sonnik_rus":
             product_dict = PRODUCT_UPDATES_SONNIK_RUS
             table_name = "users_sonnik"  # Таблица для бота "Сонник"
+        elif bot_type == "reshalbich":
+            product_dict = PRODUCT_UPDATES_RESHALA
+            table_name = "users_resh"
+            user_field = "user_id_resh"
         else:
             logging.error(f"Неизвестный bot_type: {bot_type}")
             return False
@@ -171,7 +194,7 @@ def update_user_data(bot_type: str, chat_id: int, product_id: str) -> bool:
         query = f"""
             UPDATE {table_name}
             SET {field} = {field} + %s
-            WHERE user_id{'_son' if bot_type=='sonnik_rus' else ''} = %s
+            WHERE {user_field if bot_type == 'reshalbich' else ('user_id_son' if bot_type == 'sonnik_rus' else 'user_id')} = %s
         """
 
         with psycopg2.connect(**DB_CONFIG) as conn:
@@ -197,6 +220,10 @@ def record_sale(bot_type: str, chat_id: int, product_id: str, amount: str):
         # Выбираем "красивое" название товара
         if bot_type == "tarot_rus":
             product_name = PRODUCT_NAMES_TAROT_RUS.get(product_id, product_id)
+        elif bot_type == "sonnik_rus":
+            product_name = PRODUCT_NAMES_SONNIK_RUS.get(product_id, product_id)
+        elif bot_type == "reshalbich":
+            product_name = PRODUCT_NAMES_RESHALA.get(product_id, product_id)
         else:
             product_name = PRODUCT_NAMES_SONNIK_RUS.get(product_id, product_id)
 
@@ -228,6 +255,8 @@ def send_telegram_message(bot_type: str, chat_id: int, text: str):
         url = TELEGRAM_API_URL_TAROT_RUS
     elif bot_type == "sonnik_rus":
         url = TELEGRAM_API_URL_SONNIK_RUS
+    elif bot_type == "reshalbich":
+        url = TELEGRAM_API_URL_RESHALA
     else:
         logging.error(f"Неизвестный bot_type при отправке в Telegram: {bot_type}")
         return
