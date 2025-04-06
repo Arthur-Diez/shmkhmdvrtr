@@ -63,12 +63,14 @@ HOROSCOPE_PRODUCTS = {
     "horoscope_sub_14",
     "horoscope_sub_30"
 }
-
 PRODUCT_NAMES_RESHALA = {
     "reshala_10": "10 вопросов",
     "reshala_20": "20 вопросов",
     "reshala_50": "50 вопросов",
-    "reshala_100": "100 вопросов"
+    "reshala_100": "100 вопросов",
+    "reshala_tasks_3": "3 развернутых задания",
+    "reshala_tasks_5": "5 развернутых заданий",
+    "reshala_tasks_10": "10 развернутых заданий"
 }
 
 # =========================================
@@ -104,7 +106,10 @@ PRODUCT_UPDATES_RESHALA = {
     "reshala_10":     {"field": "questions_count",       "value": 10},
     "reshala_20":     {"field": "questions_count",       "value": 20},
     "reshala_50":     {"field": "questions_count",       "value": 50},
-    "reshala_100":    {"field": "questions_count",       "value": 100}  # например, на 30 дней
+    "reshala_100":    {"field": "questions_count",       "value": 100},  # например, на 30 дней
+    "reshala_tasks_3":     {"field": "tasks_count",      "value": 3},
+    "reshala_tasks_5":     {"field": "tasks_count",      "value": 5},
+    "reshala_tasks_10":    {"field": "tasks_count",      "value": 10}
 }
 # =========================================
 
