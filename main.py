@@ -103,7 +103,7 @@ PRODUCT_UPDATES_RESHALA = {
     "reshala_10":     {"field": "tokens_count",       "value": 10},
     "reshala_20":     {"field": "tokens_count",       "value": 20},
     "reshala_50":     {"field": "tokens_count",       "value": 50},
-    "reshala_100":    {"field": "tokens_count",       "value": 100},  # например, на 30 дней
+    "reshala_100":    {"field": "tokens_count",       "value": 100}  # например, на 30 дней
 }
 # =========================================
 
