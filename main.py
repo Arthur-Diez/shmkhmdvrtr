@@ -132,7 +132,7 @@ async def webhook_yookassa(request: Request):
                 product_id,
                 amount,
             )
-            return {"status": "ok"}
+            return {"status": "ok", "skipped": "reshalbich"}
 
         if event == "payment.succeeded":
             if chat_id and product_id and bot_type:
