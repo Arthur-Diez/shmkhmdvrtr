@@ -123,6 +123,17 @@ async def webhook_yookassa(request: Request):
         product_id = payment_info.get("metadata", {}).get("product_id")
         amount = payment_info.get("amount", {}).get("value")  # Получаем сумму платежа
 
+        if bot_type == "reshalbich":
+            logging.info(
+                "⏭️ Пропускаем legacy webhook Решалыча: платежи обрабатывает новый бот. "
+                "event=%s chat_id=%s product_id=%s amount=%s",
+                event,
+                chat_id,
+                product_id,
+                amount,
+            )
+            return {"status": "ok"}
+
         if event == "payment.succeeded":
             if chat_id and product_id and bot_type:
                 # Обновляем данные в базе данных
